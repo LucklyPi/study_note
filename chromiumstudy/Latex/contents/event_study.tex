@@ -1,14 +1,3 @@
-
-\documentclass[12pt]{article}
-
-\input{config/article_config.tex}
-
-\title{chromium按键事件处理流程研究}
-\author{王勇望}
-\begin{document}
-\maketitle
-\newpage
-
 \section{引言}
 众所周知，chromium是多线程框架的，整个chromium浏览器包括四类进程：browser主进程、render渲染进程、GPU进程和插件进程。
 本文所要讲述的chromium事件处理流程主要牵涉到其中的两种进程：browser进程和render进程。
@@ -25,7 +14,7 @@ chromium中的事件也有许多类型，如按键事件、鼠标事件、滚轮
 \section{按键事件获取流程}
 \begin{figure}[H] 
   \centering 
-  \includegraphics[width=\textwidth]{image/linux_event_source_class.pdf} 
+  \includegraphics[width=\textwidth]{image/event_study/linux_event_source_class.pdf} 
   \caption{chromium linux平台事件源静态类图} \label{fig:linux_event_source_class} 
 \end{figure}
 
@@ -36,7 +25,7 @@ Windows和Android都未采用该方法。
 
 \begin{figure}[H] 
   \centering 
-  \includegraphics[width=\textwidth]{image/linux_get_event_from_source.pdf} 
+  \includegraphics[width=\textwidth]{image/event_study/linux_get_event_from_source.pdf} 
   \caption{chromium linux平台事件获取时序图} \label{fig:linux_get_event_from_source} 
 \end{figure}
 
@@ -84,7 +73,7 @@ browser进程获取按键事件的调用时序图如图~\ref{fig:linux_get_event
 
 \begin{figure}[H] 
   \centering 
-  \includegraphics[width=\textwidth]{image/browser_event_dispatch_class_1.pdf} 
+  \includegraphics[width=\textwidth]{image/event_study/browser_event_dispatch_class_1.pdf} 
   \caption{chromium browser进程事件传递静态类图-1} \label{fig:linux_event_dispatch_class_1} 
 \end{figure}
 
@@ -100,7 +89,7 @@ browser进程获取按键事件的调用时序图如图~\ref{fig:linux_get_event
 
 \begin{figure}[H] 
   \centering 
-  \includegraphics[width=\textwidth]{image/browser_event_dispatch_sequence_1.pdf} 
+  \includegraphics[width=\textwidth]{image/event_study/browser_event_dispatch_sequence_1.pdf} 
   \caption{chromium browser进程事件传递时序图-1} \label{fig:browser_event_dispatch_sequence_1} 
 \end{figure}
 
@@ -139,7 +128,7 @@ browser进程获取按键事件的调用时序图如图~\ref{fig:linux_get_event
 
 \begin{figure}[H] 
   \centering 
-  \includegraphics[width=\textwidth]{image/browser_event_dispatch_class_2.pdf} 
+  \includegraphics[width=\textwidth]{image/event_study/browser_event_dispatch_class_2.pdf} 
   \caption{chromium browser进程事件传递静态类图-2} \label{fig:linux_event_dispatch_class_2} 
 \end{figure}
 
@@ -161,7 +150,7 @@ browser进程获取按键事件的调用时序图如图~\ref{fig:linux_get_event
 
 \begin{figure}[H] 
   \centering 
-  \includegraphics[width=\textwidth]{image/browser_event_dispatch_sequence_2.pdf} 
+  \includegraphics[width=\textwidth]{image/event_study/browser_event_dispatch_sequence_2.pdf} 
   \caption{chromium browser进程事件传递时序图-2} \label{fig:browser_event_dispatch_sequence_2} 
 \end{figure}
 
@@ -198,7 +187,7 @@ target = targeter->FindNextBestTarget(target, event_to_dispatch);
 
 \begin{figure}[H] 
   \centering 
-  \includegraphics[width=\textwidth]{image/browser_event_dispatch_class_3.pdf} 
+  \includegraphics[width=\textwidth]{image/event_study/browser_event_dispatch_class_3.pdf} 
   \caption{chromium browser进程事件传递静态类图-3} \label{fig:browser_event_dispatch_class_3} 
 \end{figure}
 
@@ -218,7 +207,7 @@ target = targeter->FindNextBestTarget(target, event_to_dispatch);
 \newpage
 \begin{figure}[H] 
   \centering 
-  \includegraphics[width=\textwidth]{image/browser_event_dispatch_sequence_3.pdf} 
+  \includegraphics[width=\textwidth]{image/event_study/browser_event_dispatch_sequence_3.pdf} 
   \caption{chromium browser进程事件传递时序图-3} \label{fig:browser_event_dispatch_sequence_3} 
 \end{figure}
 
@@ -276,7 +265,7 @@ bool RenderProcessHostImpl::SendImpl(std::unique_ptr<IPC::Message> msg,
 
 \begin{figure}[H] 
   \centering 
-  \includegraphics[width=\textwidth]{image/render_event_dispatch_class.pdf} 
+  \includegraphics[width=\textwidth]{image/event_study/render_event_dispatch_class.pdf} 
   \caption{chromium render进程处理事件类图-1} \label{fig:render_event_dispatch_class} 
 \end{figure}
 
@@ -294,7 +283,7 @@ bool RenderProcessHostImpl::SendImpl(std::unique_ptr<IPC::Message> msg,
 \newpage
 \begin{figure}[H] 
   \centering 
-  \includegraphics[width=\textwidth]{image/render_event_dispatch_sequence.pdf} 
+  \includegraphics[width=\textwidth]{image/event_study/render_event_dispatch_sequence.pdf} 
   \caption{chromium render进程处理事件时序图-1} \label{fig:render_event_dispatch_sequence} 
 \end{figure}
 
@@ -339,7 +328,7 @@ void RenderWidgetInputHandler::HandleInputEvent(
 
 \begin{figure}[H] 
   \centering 
-  \includegraphics[width=\textwidth]{image/render_event_handle_class.pdf} 
+  \includegraphics[width=\textwidth]{image/event_study/render_event_handle_class.pdf} 
   \caption{chromium render进程处理事件类图-2} \label{fig:render_event_handle_class} 
 \end{figure}
 
@@ -358,7 +347,7 @@ void RenderWidgetInputHandler::HandleInputEvent(
 \newpage
 \begin{figure}[H] 
   \centering 
-  \includegraphics[width=\textwidth]{image/render_event_handle_sequence.pdf} 
+  \includegraphics[width=\textwidth]{image/event_study/render_event_handle_sequence.pdf} 
   \caption{chromium render进程处理事件时序图-2} \label{fig:render_event_handle_sequence} 
 \end{figure}
 
@@ -393,46 +382,7 @@ DispatchEventResult EventDispatcher::dispatch()
 
 %---------------------------------------------------------------------
 
-\section{TBrowser按键事件处理流程}
-
-%---------------------------------------------------------------------
-\begin{figure}[H] 
-  \centering 
-  \includegraphics[width=\textwidth]{image/tbrowser_event_source_class.pdf} 
-  \caption{TBrowser2.0按键事件获取类图} \label{fig:tbrowser_event_source_class} 
-\end{figure}
-
-如图~\ref{fig:tbrowser_event_source_class}所示：
-是TBrrowser2.0按键事件传入流程所涉及的类的静态类图。其中：
-\begin{itemize}
-  \item PlatformWindowEmbedded为移植实现的平台相关的类，其实现PlatformWindow接口。
-  并利用成员变量delegate\_向aura窗口系统推送事件。
-  \item WindowTreeHostPlaform继承WindowTreeHost，并实现PlatformWindowDelegate接口，
-  和Linux平台的DesktopWindowTreeHostX11地位相当。
-\end{itemize}
-
-\newpage
-\begin{figure}[H] 
-  \centering 
-  \includegraphics[width=\textwidth]{image/tbrowser_get_event_from_source.pdf} 
-  \caption{TBrowser2.0按键事件获取时序图} \label{fig:tbrowser_get_event_from_source} 
-\end{figure}
-
-图~\ref{fig:tbrowser_get_event_from_source}
-是TBrrowser2.0按键事件传入流程调用时序图，其中：
-\begin{itemize}
-  \item tos\_interface、shell\_interface、platform\_event\_handle是文件名，其内容为C语言实现。
-  \item 第1步调用第2步函数为向消息队列中添加消息的异步调用。
-  \item 第4步KeyEvent方法中，将判断参数unicode\_character是否为0，如不为0为添加一个Char类型事件。
-  \item WindowTreeHostPlaform调用的SendEventToProcessor方法是在其祖父类EventSource中实现，
-  之后流程与Linux平台相同。
-\end{itemize}
-
-\begin{spacing}{1.0}
-\begin{lstlisting}[language={C++}]
-
-\end{lstlisting}
-\end{spacing}
-%---------------------------------------------------------------------
-
-\end{document}
+\ifx\withtbrowser\undefined
+\else
+\input{contents/tbrowser/event_study.tex}
+\fi
