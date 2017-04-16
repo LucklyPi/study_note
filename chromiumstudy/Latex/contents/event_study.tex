@@ -1,5 +1,5 @@
 \section{引言}
-众所周知，chromium是多线程框架的，整个chromium浏览器包括四类进程：browser主进程、render渲染进程、GPU进程和插件进程。
+众所周知，chromium是多进程框架的，整个chromium浏览器包括四类进程：browser主进程、render渲染进程、GPU进程和插件进程。
 本文所要讲述的chromium事件处理流程主要牵涉到其中的两种进程：browser进程和render进程。
 
 事件处理的大体流程是由browser进程接收并传递给render进程处理。
