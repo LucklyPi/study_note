@@ -1,11 +1,11 @@
 
 \section{引言}
-关于Chromium的多进程模型，无论是其官方文档，还是技术论坛都有许多说明。
-所以，本文在此就不对多进程模型的框架再做过多的讲解。如果想了解这方面知识，请查阅官方文档中的多进程架构一节。
-本文的重点在于研究Chromium各进程的启动流程、以及Render进程的启动策略。重点在于具体实现和具体流程的分析。
+稍微了解Chromium应用的人都会清楚Chromium为多进程应用。
+关于其进程模型的框架在其官方文档的多进程框架（\url{https://www.chromium.org/developers/design-documents/multi-process-architecture}）一节有详细的介绍。
+本文不是官方文档的翻译，所以不会设计太多理论性的介绍，如果想要了解更多理论知识，可以查看官方文档的相关章节或浏览技术论坛。
+本文的重点在于研究Chromium各进程的启动流程、以及进程的启动策略，重点在于具体实现和具体流程的分析。
 
-目前Chromium包含四类进程：Browser进程、Render进程、GPU进程和Plugein进程。
-本文目前主要讨论Browser进程和Render进程，其他两类进程将在后续研究中添加。
+本文会按照Browser进程、Render进程、GPU进程和Plugein进程的顺序进行研究，其他分类的进程会在这四类进程研究过程中进行分析。
 Chromium也包含多个平台的实现，目前本文主要研究Windows平台和Linux平台，其他平台暂时不做研究。
 Chromium可以编译为多个形式的应用，本文主要以比较简单的content\_shell作为研究对象。
 
@@ -19,27 +19,26 @@ Chromium可以编译为多个形式的应用，本文主要以比较简单的con
 
 如图~\ref{fig:multi_process_architecture}所示，是chromium官方文档给出的多进程模型的简单示意图。
 图中主要描绘了Browser进程和Render进程的关系。
-其中，最上面的那个方框代表Browser主进程，是UI所在的进程，负责与用户交互、处理网络请求和管理Render进程等。
+其中，最上面的那个方框代表Browser主进程，是UI线程所在的进程，负责与用户交互、处理网络请求和管理Render进程等。
 从图中可以看出，Render进程可以不止一个，它主要任务是渲染打开的网页。
-但是并不能简单的理解为一个网页就是一个Rander进程，这个关系是可以通过启动参数配置的，后面会详细讨论这个问题。
+但是并不能简单的理解为一个网页就是一个Rander进程，这个关系是可以通过启动参数配置的，后续会详细讨论这个问题。
 
 可以从图中看出，Browser进程是通过RenderProcessHost和RenderProcess对象管理Render进程的。
 RenderProcessHost对象与Render进程中的RenderProcess对象一一对应。
 每一个Render进程都有且只有一个全局的RenderProcess对象，Render进程可以通过它和Browser进程通信。
 
-每个Render进程都会有一个或多个RenderView对象，它们受RenderProcess对象管理，代表一个使用WebKit引擎渲染的区域。
+每个Render进程都会有一个或多个RenderView对象，它们受RenderProcess对象管理，代表一个使用Blink引擎渲染的区域。
 同样，在Browser进程中的RenderProcessHost对象管理着与RenderView对应的RenderViewHost对象。
 在chromium中，还存在RenderWidgetHost和RenderWidget类，作为RenderViewHost和RenderView父类。
 RenderProcess、RenderWidge、RenderView对Browser和Render进程之间的消息传递具有重要的作用，后续的章节会作出详细的研究。
 
 在Chromium启动之初，最先启动的是Browser进程，由它来启动其他进程。
-这四类进程中Browser进程和GPU进程都只会有一个，而Render进程和插件进程可以存在多个。
-另外，Chromium提供了启动参数可以设置为单进程模式，就是所有的功能运行在一个进程中。
+研究的四类进程中Browser进程和GPU进程都只会有一个，而Render进程和插件进程可以存在多个。
+另外，Chromium提供了启动参数（--single-process）可以设置为单进程模式，就是所有的功能运行在一个进程中。
 
 \section{Browser进程启动流程}
-Browser作为Chromium系统的主进程，最先启动。
-其启动的流程自然从main函数开始的。
-Browser进程的main函数非常简单，它定义在shell\_main.cc中，其代码如下:
+Browser作为Chromium系统的主进程，最先启动，其启动的流程自然从main函数开始的(事实上，随着我们的研究，会了解到所有进程的启动都是从main函数开始)。
+main函数看起来非常的简洁，对于content\_shell它定义在shell\_main.cc文件中，其代码如下:
 
 \begin{spacing}{1.0}
 \begin{lstlisting}[language={C++}]
@@ -81,7 +80,7 @@ int ContentMain(const ContentMainParams& params) {
 \end{spacing}
 
 从以上的代码可以看出，Browser进程启动之初，最终是执行了ContentMainRunner接口的Run方法。
-其实，不止Browser进程,其他进程也同样会执行这段代码，那么就让我们分析一下这些类以及后续的调用流程吧。
+其实，不止Browser进程,其他进程也会执行同样的流程，那么就让我们分析一下这些类以及后续的调用流程吧。
 
 \begin{figure}[H] 
   \centering 
