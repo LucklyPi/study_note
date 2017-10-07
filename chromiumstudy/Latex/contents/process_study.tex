@@ -90,31 +90,48 @@ int ContentMain(const ContentMainParams& params) {
 
 如图~\ref{fig:ContentMainRunnerClass}所示，ContentMainRunnerImpl是ContentMainRunner接口的实现类，
 也是这个过程中主要的工作对象,其生命周期与Browser进程的生命周期相同。
-在创建过程中，将用到ContentMainParams对象和ShellMainDelegate对象。
+在ContentMainRunnerImpl类中主要有两个成员变量需要注意：
 
-在ContentMainRunnerImpl的Initialize函数中，还会调用ContentClientInitializer的Set函数，
-向一个全局的ContentClient对象中设置一个ContentBrowserClient对象。
-这个对象有许多的功能，在Browser进程的多个节点都可以作出一些影响。
-如：当要打开某个URL时，决定是否真的要打开；遇到证书错误时，作出相应的策略选择；是否允许某个网站使用AppCache功能等。
+一个为ContentMainDelegate类型的delegate\_
+变量，在content\_shell应用中，其实际为ShellMainDelegate对象。
+在shell\_main.cc文件中的mian函数中创建，通过ContentMainParams变量传入ContentMainRunnerImpl变量中。
+其主要负责在进程启动过程以及后续的一些节点上作出一些配置，如在进程刚刚启动时初始化LOG模块，添加一些调试信息等。
+另外，它也负责设置ContentClient变量。
+
+另一个变量就是ContentClient变量了，ContentMainRunnerImpl类中定义一个成员变量empty\_content\_client\_。
+其主要作用是作为默认的ContentClient变量，在ShellMainDelegate中定义了一些ContentClient变量，会在BasicStartupComplete
+方法中设置为进程的ContentClient变量,如果没有设置，就会使用empty\_content\_client\_。
+ContentClient变量是通过content::GetContentClient方法获取的，其为全局变量。
+通过ContentClient变量又可以获取到对应进程的Client，如ContentBrowserClient、ContentGpuClient、ContentRendererClient等。
+这些Client类在Chromium的不同编译中有着不同的实现，它们是维护浏览器的重要接口类。
+它们定义的一些接口和回调可以影响浏览器的内部逻辑，如：CanCommitURL可以阻止一些不想要的请求；AllowGetCookie、AllowSetCookie
+可以控制访问网站对Cookie操作；AllowCertificateError可以处理当发生证书错误时的具体行为等等。
+
+在content\_shell应用中，delegate\_变量和ContentClient变量分别对应ShellMainDelegate对象和ShellContentClient对象。
+ShellContentClient对象中保存的Client类是ShellContentBrowserClient和ShellContentRendererClient等。
+为了修改浏览器的一些逻辑，肯定会对这些类作出改动，我认为最好的方法是继承这些类，而不是对它直接修改。
 
 \begin{figure}[H] 
   \centering 
   \includegraphics[width=0.90\textwidth]{image/process_study/ContentMainRunnerSequence.pdf} 
-  \caption{浏览器进程启动初始流程} \label{fig:ContentMainRunnerSequence} 
+  \caption{Bowser进程启动初始流程} \label{fig:ContentMainRunnerSequence} 
 \end{figure}
 
 如图~\ref{fig:ContentMainRunnerSequence}，是浏览器进程从开始启动，到真正按进程类型去执行相关的功能的时序图。其中：
 \begin{itemize}
-  \item 在ContentMainRunnerImpl类的Initialize方法中做进程启动的准备工作。
-  如：调用delegate\_对象的BasicStartupComplete，在此方法中初始化log模块；
-  调用ContentClientInitializer类的Set方法，设置进程的ContentClient，等等。
-  \item 随着Run方法的调用，进程开始运转。Run方法的执行一直持续到整个进程结束。
-  方法后续调用了RunNamedProcessTypeMain函数，进入根据不同进程类型执行不同代码的逻辑。
-  也就是说，在此之前，所有的进程的逻辑都是相同的，这一点在后续的章节将要描述。
+  \item 在ContentMainRunnerImpl类的Initialize方法中进行进程的启动准备工作，对于所以进程都是执行同一个方法。
+  所以，这个方法非常复杂。在这个方法中会去调用delegate\_对象的BasicStartupComplete方法，进而会重新设置ContentClient对象。
+  另外，命令行对象的初始化也在这里进程。
+  \item 随着ContentMainRunnerImpl类的Run方法的调用，进程开始运转。
+  Run方法是阻塞的,它会一直持续到整个进程结束，其最后是启动一个MessageLoop这点会在介绍消息队列的章节详细介绍。
+  在Run发放中会调用RunNamedProcessTypeMain方法，用来根据不同进程类型执行不同代码的逻辑。
+  具体到Browser进程，会执行BrowserMain方法，还有其他诸如RendererMain、RendererMain、UtilityMain、RunZygote等方法，
+  会在其对应的具体进程中详细讨论。
+  也就是说，在调用BrowserMain方法之前，所有的进程的逻辑都是相同的，
+  Browser进程启动过程与其他进程相比产生分歧也是从BrowserMain方法开始。
 \end{itemize}
 
-
-
+\subsection{Browser进程主线程启动流程}
 
 
 BrowserMainRunner
@@ -122,12 +139,6 @@ BrowserMainRunnerImpl
 
 BrowserMainLoop
 ShellBrowserMainParts
-
-
-ContentClient
-ShellContentBrowserClient
-ContentRendererClient
-可以对浏览器的诸多流程做出控制，与confige关联密切
 
 浏览器Browser进程启动后，直接运行UI线程，UI线程又创建其他6个线程
 在BrowserMainLoop::CreateThreads函数中创建浏览器其他线程
