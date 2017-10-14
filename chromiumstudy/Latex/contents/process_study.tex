@@ -37,8 +37,11 @@ RenderProcess、RenderWidge、RenderView对Browser和Render进程之间的消息
 另外，Chromium提供了启动参数（--single-process）可以设置为单进程模式，就是所有的功能运行在一个进程中。
 
 \section{Browser进程启动流程}
-Browser作为Chromium系统的主进程，最先启动，其启动的流程自然从main函数开始的(事实上，随着我们的研究，会了解到所有进程的启动都是从main函数开始)。
-main函数看起来非常的简洁，对于content\_shell它定义在shell\_main.cc文件中，其代码如下:
+Browser作为Chromium系统的主进程，最先启动。其启动的流程自然是从main函数开始的。
+事实上，随着我们的研究，会了解到所有进程的启动都是重新加载可执行文件，也是从main函数开始，我们将这段过程称为进程启动的通用流程。
+
+\subsection{进程启动通用流程}
+进程的启动都是从main函数开启，对于content\_shell它定义在shell\_main.cc文件中，它看起来非常的简洁，代码如下:
 
 \begin{spacing}{1.0}
 \begin{lstlisting}[language={C++}]
@@ -58,8 +61,8 @@ int main(int argc, const char** argv) {
 \end{lstlisting}
 \end{spacing}
 
-在这段代码中定义了两个对象，它们的类型是ShellMainDelegate与ContentMainParams，最后调用了ContentMain函数。
-ContentMain函数也是非常简单的：
+在这段代码中定义了两个对象，它们的类型是ShellMainDelegate与ContentMainParams，最后调用了ContentMain方法。
+ContentMain方法也是非常简单的：
 
 \begin{spacing}{1.0}
 \begin{lstlisting}[language={C++}]
@@ -79,8 +82,7 @@ int ContentMain(const ContentMainParams& params) {
 \end{lstlisting}
 \end{spacing}
 
-从以上的代码可以看出，Browser进程启动之初，最终是执行了ContentMainRunner接口的Run方法。
-其实，不止Browser进程,其他进程也会执行同样的流程，那么就让我们分析一下这些类以及后续的调用流程吧。
+从以上的代码可以看出，进程启动之初，最终是执行了ContentMainRunner接口的Run方法，那么就让我们分析一下这些类以及后续的调用流程吧。
 
 \begin{figure}[H] 
   \centering 
@@ -89,7 +91,7 @@ int ContentMain(const ContentMainParams& params) {
 \end{figure}
 
 如图~\ref{fig:ContentMainRunnerClass}所示，ContentMainRunnerImpl是ContentMainRunner接口的实现类，
-也是这个过程中主要的工作对象,其生命周期与Browser进程的生命周期相同。
+也是这个过程中主要的工作对象,其生命周期与进程的生命周期相同。
 在ContentMainRunnerImpl类中主要有两个成员变量需要注意：
 
 一个为ContentMainDelegate类型的delegate\_
@@ -101,10 +103,12 @@ int ContentMain(const ContentMainParams& params) {
 另一个变量就是ContentClient变量了，ContentMainRunnerImpl类中定义一个成员变量empty\_content\_client\_。
 其主要作用是作为默认的ContentClient变量，在ShellMainDelegate中定义了一些ContentClient变量，会在BasicStartupComplete
 方法中设置为进程的ContentClient变量,如果没有设置，就会使用empty\_content\_client\_。
-ContentClient变量是通过content::GetContentClient方法获取的，其为全局变量。
+ContentClient变量是通过全局方法content::GetContentClient方法获取的。
+
 通过ContentClient变量又可以获取到对应进程的Client，如ContentBrowserClient、ContentGpuClient、ContentRendererClient等。
 这些Client类在Chromium的不同编译中有着不同的实现，它们是维护浏览器的重要接口类。
-它们定义的一些接口和回调可以影响浏览器的内部逻辑，如：CanCommitURL可以阻止一些不想要的请求；AllowGetCookie、AllowSetCookie
+它们定义的一些接口和回调可以影响浏览器的内部逻辑。
+对于Browser进程，CanCommitURL可以阻止一些不想要的请求；AllowGetCookie、AllowSetCookie
 可以控制访问网站对Cookie操作；AllowCertificateError可以处理当发生证书错误时的具体行为等等。
 
 在content\_shell应用中，delegate\_变量和ContentClient变量分别对应ShellMainDelegate对象和ShellContentClient对象。
@@ -114,40 +118,104 @@ ShellContentClient对象中保存的Client类是ShellContentBrowserClient和Shel
 \begin{figure}[H] 
   \centering 
   \includegraphics[width=0.90\textwidth]{image/process_study/ContentMainRunnerSequence.pdf} 
-  \caption{Bowser进程启动初始流程} \label{fig:ContentMainRunnerSequence} 
+  \caption{进程启动通用流程} \label{fig:ContentMainRunnerSequence} 
 \end{figure}
 
 如图~\ref{fig:ContentMainRunnerSequence}，是浏览器进程从开始启动，到真正按进程类型去执行相关的功能的时序图。其中：
+
+在ContentMainRunnerImpl类的Initialize方法中进行进程的启动准备工作，对于所以进程都是执行同一个方法。
+所以，这个方法非常复杂。在这个方法中会去调用delegate\_对象的BasicStartupComplete方法，进而会重新设置ContentClient对象。
+另外，命令行对象的初始化也在这里进程。
+
+随着ContentMainRunnerImpl类的Run方法的调用，进程开始运转。
+Run方法是阻塞的,它会一直持续到整个进程结束，其最后是启动一个MessageLoop这点会在介绍消息队列的章节详细介绍。
+在Run发放中会调用RunNamedProcessTypeMain方法，用来根据不同进程类型执行不同代码的逻辑。
+具体到Browser进程，会执行BrowserMain方法，还有其他诸如RendererMain、RendererMain、UtilityMain、RunZygote等方法，
+会在其对应的具体进程中详细讨论。
+也就是说，在调用BrowserMain方法之前，所有的进程的逻辑都是相同的，
+Browser进程启动过程与其他进程相比产生分歧也是从RunNamedProcessTypeMain方法开始。
+
+\subsection{主线程启动流程}
+Browser进程启动之后运行的线程就是UI线程，它也是Browser进程的主线程。
+UI线程的启动是从BrowserMain方法的调用开始 ，那么我们就看一下BrowserMain方法的具体内容吧。
+
+\begin{spacing}{1.0}
+\begin{lstlisting}[language={C++}]
+int ContentMain(const ContentMainParams& params) {
+  ScopedBrowserMainEvent scoped_browser_main_event;
+
+  base::trace_event::TraceLog::GetInstance()->SetProcessName("Browser");
+  base::trace_event::TraceLog::GetInstance()->SetProcessSortIndex(
+      kTraceEventBrowserProcessSortIndex);
+
+  scoped_ptr<BrowserMainRunner> main_runner(BrowserMainRunner::Create());
+
+  int exit_code = main_runner->Initialize(parameters);
+  if (exit_code >= 0)
+    return exit_code;
+
+  exit_code = main_runner->Run();
+
+  main_runner->Shutdown();
+  
+  return exit_code;
+}
+\end{lstlisting}
+\end{spacing}
+
+可以看出，BrowserMain方法与ContentMain方法十分相似，只是创建的是BrowserMainRunner类的对象，
+然后分别执行Initialize，Run方法，最后退出时执行Shutdown方法。
+那么我们就沿用之前的思路，了解一下BrowserMainRunner以及与之相关的其他类吧。
+
+\begin{figure}[H] 
+  \centering 
+  \includegraphics[width=0.90\textwidth]{image/process_study/MainThreadStartClass.pdf} 
+  \caption{主线程启动过程相关类} \label{fig:MainThreadStartClass} 
+\end{figure}
+
+如图~\ref{fig:MainThreadStartClass}所示，BrowserMainRunner中的逻辑相对比较简单。
+它大多数功能都是通过调用其成员变量main\_loop\_（BrowserMainLoop对象）实现。
+相对而言，main\_loop\_对象要复杂许多，那么我们就重点研究一下BrowserMainLoop类的组成。
+
+BrowserMainLoop类中值得注意的成员变量有四个（类），分别是parts\_、startup\_task\_runner\_、main\_thread\_和BrowserProcessSubThread对象。
+它们每一个都又是非常复杂的，在这里不可能做详细的描述，所以就简要说明一下他们的主要作用吧。
 \begin{itemize}
-  \item 在ContentMainRunnerImpl类的Initialize方法中进行进程的启动准备工作，对于所以进程都是执行同一个方法。
-  所以，这个方法非常复杂。在这个方法中会去调用delegate\_对象的BasicStartupComplete方法，进而会重新设置ContentClient对象。
-  另外，命令行对象的初始化也在这里进程。
-  \item 随着ContentMainRunnerImpl类的Run方法的调用，进程开始运转。
-  Run方法是阻塞的,它会一直持续到整个进程结束，其最后是启动一个MessageLoop这点会在介绍消息队列的章节详细介绍。
-  在Run发放中会调用RunNamedProcessTypeMain方法，用来根据不同进程类型执行不同代码的逻辑。
-  具体到Browser进程，会执行BrowserMain方法，还有其他诸如RendererMain、RendererMain、UtilityMain、RunZygote等方法，
-  会在其对应的具体进程中详细讨论。
-  也就是说，在调用BrowserMain方法之前，所有的进程的逻辑都是相同的，
-  Browser进程启动过程与其他进程相比产生分歧也是从BrowserMain方法开始。
+  \item parts\_对象定义为BrowserMainParts对象，主要是抽象BrowserMainLoop类在不同应用中的不同逻辑。
+  在content\_shell应用中，其实际为ShellBrowserMainParts对象，当然还存在BlimpBrowserMainParts、ChromeBrowserMainParts等等。
+  \item startup\_task\_runner\_是StartupTaskRunner对象，其主要任务是执行Browser进程启动时，配置的开机任务。
+  这些任务主要是启动创建并启动其他线程，当然也包含创建这些线程的前期准备和后续配置等。
+  \item 在BrowserMainLoop对象中存在一个main\_thread\_对象和六个BrowserProcessSubThread对象。
+  分别对应一个主线程和六个子线程，子线程为BrowserProcessSubThread对象，通过StartupTaskRunner方法创建。
+  这些对象虽然存在于BrowserMainLoop对象中，但不是完全的私有，它们还被全局变量g\_globals引用，可以通过BrowserThread类中定义的静态方法访问。
+  这些线程对象是所对应线程的抽象，可以通过这些对象访问线程资源，如消息队列等。
 \end{itemize}
 
-\subsection{Browser进程主线程启动流程}
+\begin{figure}[H] 
+  \centering 
+  \includegraphics[width=0.90\textwidth]{image/process_study/MainThreadStartSuquence.pdf} 
+  \caption{主线程启动过程} \label{fig:MainThreadStartSuquence} 
+\end{figure}
+
+如图~\ref{fig:MainThreadStartSuquence}所示，是Browser进程启动后，其主线程运行时序图。
+其中值得注意的有以下几个方面：
+\begin{itemize}
+  \item 在InitializeMainThread方法中创建了主线程的线程对象main\_thread\_，值得注意的是，这里仅仅是创建而已。
+  并没有调用StartWithOptions方法，因为主线程的消息循环并不是通过main\_thread\_对象启动的，而是在MainMessageLoopRun方法中启动消息循环。
+  \item 在CreateStartupTasks方法中，创建了多个开机任务，主要有pre\_create\_threads，create\_threads，browser\_thread\_started，
+  pre\_main\_message\_loop\_run，然后调用RunAllTasksNow方法依次同步执行这些任务。
+  其中，在create_threads中创建了其他各个线程，并将其启动；在pre\_main\_message\_loop\_run方法中加载默认页面。
+  \item 可以看出虽然主线程的线程对象创建先于其他线程；但是，消息队列的启动却晚于其他线程。
+  至于消息队列的构成与运转方式，后续的章节会详细研究，这里就可以简单理解为进入一个无限的循环当中，不断地处理任务。
+\end{itemize}
+
+\subsection{子线程启动流程}
 
 
-BrowserMainRunner
-BrowserMainRunnerImpl
 
-BrowserMainLoop
-ShellBrowserMainParts
-
-浏览器Browser进程启动后，直接运行UI线程，UI线程又创建其他6个线程
-在BrowserMainLoop::CreateThreads函数中创建浏览器其他线程
-
-
-\section{Render进程启动流程}
-
-为什么设置的log在render进程中失效
-
-\section{Render进程的启动策略}
-
-\section{Browser进程和Render进程重要类的对应关系}
+%\section{Render进程启动流程}
+%
+%为什么设置的log在render进程中失效
+%
+%\section{Render进程的启动策略}
+%
+%\section{Browser进程和Render进程重要类的对应关系}
