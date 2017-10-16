@@ -2,7 +2,7 @@
 \section{引言}
 稍微了解Chromium应用的人都会清楚Chromium为多进程应用。
 关于其进程模型的框架在其官方文档的多进程框架（\url{https://www.chromium.org/developers/design-documents/multi-process-architecture}）一节有详细的介绍。
-本文不是官方文档的翻译，所以不会设计太多理论性的介绍，如果想要了解更多理论知识，可以查看官方文档的相关章节或浏览技术论坛。
+本文不是官方文档的翻译，所以不会涉及太多理论性的介绍，如果想要了解更多理论知识，可以查看官方文档的相关章节或浏览技术论坛。
 本文的重点在于研究Chromium各进程的启动流程、以及进程的启动策略，重点在于具体实现和具体流程的分析。
 
 本文会按照Browser进程、Render进程、GPU进程和Plugein进程的顺序进行研究，其他分类的进程会在这四类进程研究过程中进行分析。
@@ -14,10 +14,10 @@ Chromium可以编译为多个形式的应用，本文主要以比较简单的con
 \begin{figure}[H] 
   \centering 
   \includegraphics[width=0.80\textwidth]{image/process_study/multi_process_architecture.png} 
-  \caption{chromium多进程模型示意图} \label{fig:multi_process_architecture} 
+  \caption{Chromium多进程模型示意图} \label{fig:multi_process_architecture} 
 \end{figure}
 
-如图~\ref{fig:multi_process_architecture}所示，是chromium官方文档给出的多进程模型的简单示意图。
+如图~\ref{fig:multi_process_architecture}所示，是Chromium官方文档给出的多进程模型的简单示意图。
 图中主要描绘了Browser进程和Render进程的关系。
 其中，最上面的那个方框代表Browser主进程，是UI线程所在的进程，负责与用户交互、处理网络请求和管理Render进程等。
 从图中可以看出，Render进程可以不止一个，它主要任务是渲染打开的网页。
@@ -29,11 +29,11 @@ RenderProcessHost对象与Render进程中的RenderProcess对象一一对应。
 
 每个Render进程都会有一个或多个RenderView对象，它们受RenderProcess对象管理，代表一个使用Blink引擎渲染的区域。
 同样，在Browser进程中的RenderProcessHost对象管理着与RenderView对应的RenderViewHost对象。
-在chromium中，还存在RenderWidgetHost和RenderWidget类，作为RenderViewHost和RenderView父类。
+在Chromium中，还存在RenderWidgetHost和RenderWidget类，作为RenderViewHost和RenderView父类。
 RenderProcess、RenderWidge、RenderView对Browser和Render进程之间的消息传递具有重要的作用，后续的章节会作出详细的研究。
 
 在Chromium启动之初，最先启动的是Browser进程，由它来启动其他进程。
-研究的四类进程中Browser进程和GPU进程都只会有一个，而Render进程和插件进程可以存在多个。
+研究的四类进程中Browser进程和GPU进程都只会有一个，而Render进程和Plugin进程可以存在多个。
 另外，Chromium提供了启动参数（--single-process）可以设置为单进程模式，就是所有的功能运行在一个进程中。
 
 \section{Browser进程启动流程}
@@ -203,7 +203,7 @@ BrowserMainLoop类中值得注意的成员变量有四个（类），分别是pa
   并没有调用StartWithOptions方法，因为主线程的消息循环并不是通过main\_thread\_对象启动的，而是在MainMessageLoopRun方法中启动消息循环。
   \item 在CreateStartupTasks方法中，创建了多个开机任务，主要有pre\_create\_threads，create\_threads，browser\_thread\_started，
   pre\_main\_message\_loop\_run，然后调用RunAllTasksNow方法依次同步执行这些任务。
-  其中，在create_threads中创建了其他各个线程，并将其启动；在pre\_main\_message\_loop\_run方法中加载默认页面。
+  其中，在create\_threads中创建了其他各个线程，并将其启动；在pre\_main\_message\_loop\_run方法中加载默认页面。
   \item 可以看出虽然主线程的线程对象创建先于其他线程；但是，消息队列的启动却晚于其他线程。
   至于消息队列的构成与运转方式，后续的章节会详细研究，这里就可以简单理解为进入一个无限的循环当中，不断地处理任务。
 \end{itemize}
