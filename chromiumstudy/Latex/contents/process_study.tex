@@ -209,8 +209,104 @@ BrowserMainLoop类中值得注意的成员变量有四个（类），分别是pa
 \end{itemize}
 
 \subsection{子线程启动流程}
+Browser进程的子线程的启动开始于在BrowserMainLoop::CreateStartupTasks方法中创建的两个startup\_task，
+分别是pre\_create\_threads和create\_threads。
+主要涉及到的类是BrowserProcessSubThread已经其父类BrowserThreadImpl和祖父类Thread。
+下面我们就先分析一下这些类的关系，然后再了解一下子线程启动的具体流程。
 
+\begin{figure}[H] 
+  \centering 
+  \includegraphics[width=0.90\textwidth]{image/process_study/SubThreadStartClass.pdf} 
+  \caption{子线程启动过程相关类} \label{fig:SubThreadStartClass} 
+\end{figure}
 
+如图~\ref{fig:SubThreadStartClass}所示，是子线程启动过程中涉及到的主要类的关系图。
+其中主要的关系是BrowserProcessSubThread、BrowserThreadImpl、Thread以及PlatformThread::Delegate这四个类的继承关系。
+对于子线程，运行时最终以BrowserProcessSubThread类的对象呈现，但大部分的逻辑处理都是定义在BrowserThreadImpl和Thread类当中。
+
+BrowserThread类中定义的方法，大多数都是静态方法，其主要作用是后续的管理线程工作，参与到启动过程的地方很少。
+从它的成员函数也可以看出，他的主要作用是向线程中添加任务、查询线程状态、销毁线程等。
+我们在开发过程中常常使用的宏定义content::BrowserThread::PostTask也是由这个类定义的。
+
+对于PlatformThread类，它是具体平台的线程抽象类，Thread中有关线程操作基本上都会调用这个类实现。
+同时，PlatformThreadHandle类定义平台线程的Handle，这些都是一些很容易理解的概念，这里就不在深入研究了。
+
+了解过子线程相关类的关系之后，我们再来看一下创建子线程的具体执行流程。
+真正开始创建子线程是从BrowserMainLoop::CreateThreads方法开始的。
+这个方法内容稍微长一点，为了便于展示，我复制了其中了一部分到这里。
+
+\begin{spacing}{1.0}
+\begin{lstlisting}[language={C++}]
+int BrowserMainLoop::CreateThreads() {
+  ...
+  // Start threads in the order they occur in the BrowserThread::ID
+  // enumeration, except for BrowserThread::UI which is the main
+  // thread.
+  //
+  // Must be size_t so we can increment it.
+  for (size_t thread_id = BrowserThread::UI + 1;
+       thread_id < BrowserThread::ID_COUNT;
+       ++thread_id) {
+    scoped_ptr<BrowserProcessSubThread>* thread_to_start = NULL;
+    base::Thread::Options options;
+
+    switch (thread_id) {
+      case BrowserThread::DB:
+        thread_to_start = &db_thread_;
+        options.timer_slack = base::TIMER_SLACK_MAXIMUM;
+        break;
+      ...
+      case BrowserThread::UI:
+      case BrowserThread::ID_COUNT:
+      default:
+        NOTREACHED();
+        break;
+    }
+
+    BrowserThread::ID id = static_cast<BrowserThread::ID>(thread_id);
+    
+    if (thread_to_start) {
+      (*thread_to_start).reset(new BrowserProcessSubThread(id));
+      if (!(*thread_to_start)->StartWithOptions(options)) {
+        LOG(FATAL) << "Failed to start the browser thread: id == " << id;
+      }
+    } else {
+      NOTREACHED();
+    }
+  }
+  created_threads_ = true;
+  return result_code_;
+}
+\end{lstlisting}
+\end{spacing}
+
+可以看出，这个方法的主体是一个for循环，从BrowserThread::UI + 1开始到BrowserThread::ID_COUNT结束，依次创建各个子线程。
+通过注释我们也能轻易地看出，正如我们之前分析的一样，主线程的启动并不在这里。
+启动线程的过程也是很简单，创建一个BrowserProcessSubThread对象，然后调用它的StartWithOptions方法。
+下面我们就用时序图的方式查看一下后续的过程吧。
+
+\begin{figure}[H] 
+  \centering 
+  \includegraphics[width=0.90\textwidth]{image/process_study/SubThreadStartSuquence.pdf} 
+  \caption{子线程启动过程} \label{fig:SubThreadStartSuquence} 
+\end{figure}
+
+如图~\ref{fig:SubThreadStartClass}所示，调用BrowserProcessSubThread对象的StartWithOptions方法之后会不断向父类调用，
+直到在 PlatformThread::CreateWithPriority方法中调用CreateThread方法，创建平台的线程对象。
+值得注意的是，图中对Thread类的调用其实际是调用的BrowserProcessSubThread对象，这个之前已经说明过了，它们是集成关系。
+只是BrowserProcessSubThread类很少覆盖父类方法，就是有覆盖最后还是会调用父类的处理。
+
+在平台线程对象创建完成后，StartWithOptions方法就会返回，接着就会创建下一个子线程。
+已经创建的子线程运转起来和创建子线程是一个同时进行的过程。
+在Thread::Run方法中会调用线程的message_loop的Run方法：
+\begin{spacing}{1.0}
+\begin{lstlisting}[language={C++}]
+void Thread::Run(MessageLoop* message_loop) {
+  message_loop->Run();
+}
+\end{lstlisting}
+\end{spacing}
+这个方法不会返回，会一直持续到线程结束，调用这个方法线程也就进入了运转的状态，开始处理任务了。
 
 %\section{Render进程启动流程}
 %
