@@ -59,6 +59,7 @@ Tbrowser Remote DevTools功能打开后，Tbrowser会监听指定的端口，创
 目前的Tbrowser2.0是基于Chromium49开发的，所以这里看到的调试页面是Chromium49版的调试页面。
 有些功能和PC上的开发者工具不同，但大多数常用的功能还是一致的。
 这里我们按照模块来研究一下Tbrowser Remote DevTools的具体使用情况。
+以下内容大量参考了Chrome Devtools说明文档，如有疑问可以查询Chrome Devtools说明文档(https://developers.google.com/web/tools/chrome-devtools/)。
 
 \subsection{Elements面板}
 Elements面板功能和最新的Chrome DevTools几乎没有区别，对于页面开发者来说这个模块的功能也应该非常熟悉。
@@ -226,13 +227,13 @@ Function & 当特定函数执行时触发的断点 \\
 \begin{figure}[H] 
 \centering 
 \includegraphics[width=0.9\textwidth]{image/devtools_study/add_conditional_breakpoint1.png} 
-\caption{添加条件断点} \label{fig:sources_panel} 
+\caption{添加条件断点} \label{fig:add_conditional_breakpoint1} 
 \end{figure}
 
 \begin{figure}[H] 
 \centering 
 \includegraphics[width=0.9\textwidth]{image/devtools_study/add_conditional_breakpoint2.png} 
-\caption{添加添加断点成功} \label{fig:sources_panel} 
+\caption{添加添加断点成功} \label{fig:add_conditional_breakpoint2} 
 \end{figure}
 
 如果想要只在某种条件下才出发断点，可以使用条件断点。添加条件断点的步骤是：
@@ -265,7 +266,7 @@ Dom断点是当页面指定的节点或者其子节点被删除或更改时触�
 \begin{figure}[H] 
 \centering 
 \includegraphics[width=0.9\textwidth]{image/devtools_study/add_dom_breakpoint.png} 
-\caption{添加Dom断点的过程} \label{fig:sources_panel} 
+\caption{添加Dom断点的过程} \label{fig:add_dom_breakpoint} 
 \end{figure}
 
 Devtools支持三种Dom断点：
@@ -277,10 +278,84 @@ Devtools支持三种Dom断点：
 \end{itemize}
 
 \subsubsection{XHR Breakpoints}
+XHR(XMLHttpRequest)断点用于当XMLHttpRequest请求包含指定字符串时暂停代码执行。
+添加XHR断点的步骤如下：
+\begin{enumerate}
+\item 打开Sources面板，展开XHR Breakpoints标签。
+\item 点击右边的“+”按钮，在输入框内输入要检测的URL的关键字，按Tab键添加XHR断点。
+\item 当发生的XMLHttpRequest中包含输入的关键字时，代码的执行就会暂停。
+如果添加断点时没有输入任何关键字，那么将在每次XHR请求时暂停。
+\end{enumerate}
+
+\begin{figure}[H] 
+\centering 
+\includegraphics{image/devtools_study/add_xhr_breakpoint.png} 
+\caption{添加检查“1.jpg”的XHR断点} \label{fig:add_xhr_breakpoint} 
+\end{figure}
+
+\subsubsection{Event listener breakpoints}
+事件断点用于当要检查的事件发生时，暂停代码的执行。
+通常会暂停在事件监听函数的第一行。
+可以检查特定的事件，如“keydown”，也可以监听同一类事件，如“按键事件”。
+添加事件断点的步骤如下：
+\begin{enumerate}
+\item 打开Sources面板，展开Event listener breakpoints标签。
+\item 勾选要检查事件前的复选框。
+\item 勾选类别前的复选框可以检查同一类事件，展开类别，可以选择特定事件检查。
+\end{enumerate}
+
+\begin{figure}[H] 
+\centering 
+\includegraphics[width=0.9\textwidth]{image/devtools_study/add_event_breakpoint.png} 
+\caption{添加检查keydown事件的事件断点} \label{fig:add_event_breakpoint} 
+\end{figure}
+
+\subsubsection{Exception breakpoints}
+异常断点用于当代码执行过程中抛出异常时,暂停代码执行，进行调试。
+点击图\ref{fig:add_exception_breakpoint}中红框标记的按键即可打开或者关闭异常断点功能。
+如果打开异常断点功能，图标将会变为蓝色。
+
+\begin{figure}[H] 
+\centering 
+\includegraphics{image/devtools_study/add_exception_breakpoint.png} 
+\caption{检查异常断点} \label{fig:add_exception_breakpoint} 
+\end{figure}
+
+\subsubsection{Function breakpoints}
+如在Line-of-code Breakpoints中提到的debugger语言一样，可以使用debug()方法标记要调试的函数。
+这样每次执行到这个函数都会暂停代码的执行，可以进行调试。
+此方法相当于在函数的第一行添加一个确切断点。
+另外，经验证此方法在最新的Chrome中已经不支持，所以不推荐使用。
+\begin{spacing}{1.0}
+\begin{lstlisting}[language={C++}]
+function sum(a, b) {
+  let result = a + b; // DevTools pauses on this line.
+  return result;
+}
+debug(sum); // Pass the function object, not a string.
+sum(1,1);
+\end{lstlisting}
+\end{spacing}
 
 \subsection{Network模块}
-\subsection{Timeline模块}
-\subsection{Profiles模块}
-\subsection{Resourcess模块}
-\subsection{Security模块}
-\subsection{Audits模块}
+Network模块主要作用是分析页面加载过程，用于解决页面加载慢，加载中资源出错等问题非常方便。
+关于该模块Chrome Devtools介绍的非常详细了，可以直接阅读一下文档：\\
+https://developers.google.com/web/tools/chrome-devtools/network-performance/resource-loading\\
+https://developers.google.com/web/tools/chrome-devtools/network-performance/understanding-resource-timing\\
+
+在实际使用中发现一下问题：
+\begin{enumerate}
+\item 截屏信息只有在reload时才能抓取，这个问题与Chrome Devtools表现一致。
+\item 查看截屏详细信息时，Devtools会卡死。
+\end{enumerate}
+
+
+为了方便我将上面的两个文档附加到下面：
+\includepdf[pages=-]{image/devtools_study/network.pdf} 
+\includepdf[pages=-]{image/devtools_study/resource_timeing.pdf} 
+
+%\subsection{Timeline模块}
+%\subsection{Profiles模块}
+%\subsection{Resourcess模块}
+%\subsection{Security模块}
+%\subsection{Audits模块}
